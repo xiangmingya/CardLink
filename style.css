@@ -5,27 +5,28 @@
     gap: 15px;
     max-width: 1200px;
     margin: 20px auto;
-    padding: 0 20px;
-    justify-content: center;
+    padding: 0 20px !important;
+    justify-content: flex-start;
+    box-sizing: border-box;
 }
 
 /* 卡片容器 */
 .xiangming-card-link-item {
     position: relative;
-    flex: 0 0 calc(50% - 7.5px);
+    flex: 0 0 100%;
+    max-width: 800px;
     background: #fff;
     border: 1px solid #eaeaea;
     border-radius: 8px;
     transition: all 0.25s ease;
     overflow: hidden;
     box-sizing: border-box;
-    margin: 5%;
 }
 
 /* 单个卡片居中 */
 .xiangming-card-link-item:only-child {
-    flex: 0 0 calc(50% - 7.5px);
-    max-width: 600px;
+    flex: 0 0 100%;
+    max-width: 800px;
 }
 
 /* 分类标签 */

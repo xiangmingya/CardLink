@@ -92,8 +92,8 @@ Typecho 后台发布或更新文章时，文章链接将会自动推送到百度
 ## 🎨 样式展示
 
 ### 桌面端效果
-- 一行显示 2 个卡片
-- 最大宽度 1200px，居中显示
+- 一行显示 1 个卡片
+- 最大宽度 800px，居中显示
 - 左右边距 20px
 
 ### 移动端效果
@@ -152,7 +152,7 @@ CardLink/
 [/card]
 ```
 
-### 多个卡片（自动双列布局）
+### 多个卡片
 ```
 [card name="插件A" link="https://example.com/a" category="插件"]插件A的描述[/card]
 [card name="插件B" link="https://example.com/b" category="插件"]插件B的描述[/card]
@@ -190,7 +190,7 @@ A: 这是旧版解析逻辑导致的输出位置问题，不是单纯 CSS 导致
 ## 👨‍💻 作者
 
 - **作者**: 湘铭呀
-- **版本**: 3.1.0
+- **版本**: 3.2.0
 - **项目地址**: https://github.com/xiangmingya/CardLink
 
 ## 🙏 致谢
