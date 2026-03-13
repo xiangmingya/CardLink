@@ -1,5 +1,5 @@
 /* 卡片容器包裹层 */
-.card-link-container {
+.xiangming-card-link-container {
     display: flex;
     flex-wrap: wrap;
     gap: 15px;
@@ -10,7 +10,7 @@
 }
 
 /* 卡片容器 */
-.card-link-item {
+.xiangming-card-link-item {
     position: relative;
     flex: 0 0 calc(50% - 7.5px);
     background: #fff;
@@ -22,13 +22,13 @@
 }
 
 /* 单个卡片居中 */
-.card-link-item:only-child {
+.xiangming-card-link-item:only-child {
     flex: 0 0 calc(50% - 7.5px);
     max-width: 600px;
 }
 
 /* 分类标签 */
-.card-link-category {
+.xiangming-card-link-category {
     position: absolute;
     top: 10px;
     right: 10px;
@@ -41,7 +41,7 @@
 }
 
 /* Emoji 图标 */
-.card-link-emoji {
+.xiangming-card-link-emoji {
     position: absolute;
     bottom: 18px;
     right: 20px;
@@ -52,40 +52,43 @@
 }
 
 /* 日期显示 */
-.card-link-date {
+.xiangming-card-link-date {
     position: absolute;
-    bottom: 12px;
-    right: 16px;
+    bottom: 16px;
+    right: 20px;
     font-size: 12px;
     color: #95a5a6;
     line-height: 1;
     pointer-events: none;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.92);
+    padding-left: 8px;
 }
 
 /* 悬停效果 */
-.card-link-item:hover {
+.xiangming-card-link-item:hover {
     border-color: #d0d0d0;
     box-shadow: 0 4px 16px rgba(0,0,0,0.08);
     transform: translateY(-2px);
 }
 
 /* 链接包裹层 */
-.card-link-wrap {
+.xiangming-card-link-wrap {
     display: block;
-    padding: 18px 20px;
+    padding: 18px 20px 52px;
     text-decoration: none !important;
     color: #333 !important;
     border: none !important;
 }
 
 /* 内容区域 */
-.card-link-body {
+.xiangming-card-link-body {
     width: 100%;
-    padding-right: 70px;
+    padding-right: 96px;
 }
 
 /* 标题 */
-.card-link-title {
+.xiangming-card-link-title {
     margin: 0 0 8px 0 !important;
     padding: 0 !important;
     font-size: 17px;
@@ -98,11 +101,11 @@
 }
 
 /* 描述 */
-.card-link-desc {
+.xiangming-card-link-desc {
     font-size: 14px;
     color: #7f8c8d;
-    line-height: 1.65;
-    margin-bottom: 20px;
+    line-height: 1.6;
+    margin-bottom: 0;
     padding: 10px 12px;
     background: #f8f9fa;
     border-radius: 6px;
@@ -110,12 +113,23 @@
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    max-height: calc(1.6em * 2);
     word-break: break-word;
+}
+
+.xiangming-card-link-desc > * {
+    display: inline;
+    margin: 0;
+    padding: 0;
+}
+
+.xiangming-card-link-desc br {
+    display: none;
 }
 
 /* 平板端 */
 @media (max-width: 992px) {
-    .card-link-container {
+    .xiangming-card-link-container {
         max-width: 100%;
         padding: 0 15px;
     }
@@ -123,16 +137,16 @@
 
 /* 移动端 */
 @media (max-width: 768px) {
-    .card-link-container {
+    .xiangming-card-link-container {
         gap: 10px;
         padding: 0 10px;
     }
 
-    .card-link-item {
+    .xiangming-card-link-item {
         flex: 0 0 100%;
     }
 
-    .card-link-body {
-        padding-right: 70px;
+    .xiangming-card-link-body {
+        padding-right: 96px;
     }
 }

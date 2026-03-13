@@ -5,12 +5,15 @@ if (!defined('__TYPECHO_ROOT_DIR__')) exit;
  * 卡片式链接展示插件
  * 
  * @package CardLink
- * @author Gemini
- * @version 1.0.0
- * @link https://example.com
+ * @author 湘铭呀
+ * @version 3.1.0
+ * @link https://github.com/xiangmingya/CardLink
  */
 class CardLink_Plugin implements Typecho_Plugin_Interface
 {
+    private const DEFAULT_COLOR = '#667eea';
+    private const PLACEHOLDER_PREFIX = 'XIANGMING_CARDLINK_TOKEN_';
+
     /**
      * 激活插件
      */
@@ -49,7 +52,7 @@ class CardLink_Plugin implements Typecho_Plugin_Interface
     public static function header()
     {
         $cssUrl = Helper::options()->pluginUrl . '/CardLink/style.css';
-        echo '<link rel="stylesheet" type="text/css" href="' . $cssUrl . '" />';
+        echo '<link rel="stylesheet" type="text/css" href="' . htmlspecialchars($cssUrl, ENT_QUOTES, 'UTF-8') . '" />';
     }
 
     /**
@@ -135,47 +138,42 @@ EOF;
      */
     public static function parse($text, $widget, $lastResult)
     {
-        $text = empty($lastResult) ? $text : $lastResult;
-
-        // 先调用 Markdown 解析
-        if (class_exists('Parsedown')) {
-            $parsedown = new Parsedown();
-            $text = $parsedown->text($text);
-        } elseif (class_exists('HyperDown')) {
-            $parser = new HyperDown();
-            $text = $parser->makeHtml($text);
+        $content = empty($lastResult) ? $text : $lastResult;
+        if (stripos($content, '[card') === false) {
+            return $content;
         }
 
-        // 收集所有卡片
-        $pattern = '/\[card\s+(.*?)\](.*?)\[\/card\]/is';
-        $cards = array();
+        $cardGroups = array();
+        $pattern = '/((?:\s*\[card\b[^\]]*\].*?\[\/card\]\s*)+)/is';
+        $contentWithPlaceholders = preg_replace_callback(
+            $pattern,
+            function ($matches) use (&$cardGroups) {
+                preg_match_all('/\[card\b([^\]]*)\](.*?)\[\/card\]/is', $matches[1], $cardMatches, PREG_SET_ORDER);
+                if (empty($cardMatches)) {
+                    return $matches[0];
+                }
 
-        preg_match_all($pattern, $text, $matches, PREG_SET_ORDER);
+                $cards = array();
+                foreach ($cardMatches as $cardMatch) {
+                    $cards[] = self::parseCallback($cardMatch);
+                }
 
-        if (!empty($matches)) {
-            // 生成所有卡片 HTML
-            foreach ($matches as $match) {
-                $cards[] = CardLink_Plugin::parseCallback($match);
-            }
+                $index = count($cardGroups);
+                $cardGroups[] = '<div class="xiangming-card-link-container">' . implode('', $cards) . '</div>';
+                return "\n\n" . self::PLACEHOLDER_PREFIX . $index . "\n\n";
+            },
+            $content
+        );
 
-            // 用容器包裹所有卡片
-            $cardsHtml = '<div class="card-link-container">' . implode('', $cards) . '</div>';
-
-            // 替换所有短代码为容器
-            $text = preg_replace($pattern, '', $text, 1);
-            $text = preg_replace($pattern, '', $text);
-            $text = preg_replace('/<p>\s*<\/p>/', '', $text);
-
-            // 在第一个短代码位置插入容器
-            $firstPos = strpos($text, '</p>');
-            if ($firstPos !== false) {
-                $text = substr_replace($text, '</p>' . $cardsHtml, $firstPos, 4);
-            } else {
-                $text .= $cardsHtml;
-            }
+        if ($contentWithPlaceholders === null || empty($cardGroups)) {
+            return $content;
         }
 
-        return $text;
+        if (self::shouldRenderMarkdown($text, $lastResult)) {
+            $contentWithPlaceholders = self::renderMarkdown($contentWithPlaceholders);
+        }
+
+        return self::replacePlaceholders($contentWithPlaceholders, $cardGroups);
     }
 
     /**
@@ -183,7 +181,7 @@ EOF;
      */
     public static function parseCallback($matches)
     {
-        $params_str = $matches[1];
+        $params_str = isset($matches[1]) ? trim($matches[1]) : '';
         $desc = trim($matches[2]);
 
         $atts = array(
@@ -193,13 +191,13 @@ EOF;
             'date' => ''
         );
 
-        $pattern = '/(\w+)=\"(.*?)\"/';
+        $pattern = '/(\w+)\s*=\s*([\'"])(.*?)\2/s';
         preg_match_all($pattern, $params_str, $attributes);
 
         if (isset($attributes[1])) {
             foreach ($attributes[1] as $key => $attr) {
                 if (isset($atts[$attr])) {
-                    $atts[$attr] = $attributes[2][$key];
+                    $atts[$attr] = trim($attributes[3][$key]);
                 }
             }
         }
@@ -208,64 +206,167 @@ EOF;
         $emojiHtml = '';
 
         if (!empty($atts['category'])) {
-            $options = Helper::options();
-            $plugin = $options->plugin('CardLink');
-
-            $colorMap = array();
-            $emojiMap = array();
-
-            if (!empty($plugin->categoryColors)) {
-                $lines = explode("\n", $plugin->categoryColors);
-                foreach ($lines as $line) {
-                    $line = trim($line);
-                    if (strpos($line, ':') !== false) {
-                        $parts = explode(':', $line);
-                        $cat = trim($parts[0]);
-                        $col = isset($parts[1]) ? trim($parts[1]) : '#667eea';
-                        $emoji = isset($parts[2]) ? trim($parts[2]) : '';
-
-                        $colorMap[$cat] = $col;
-                        if (!empty($emoji)) {
-                            $emojiMap[$cat] = $emoji;
-                        }
-                    }
-                }
-            }
-
-            $color = isset($colorMap[$atts['category']]) ? $colorMap[$atts['category']] : '#667eea';
+            list($colorMap, $emojiMap) = self::getCategoryConfig();
+            $color = isset($colorMap[$atts['category']]) ? $colorMap[$atts['category']] : self::DEFAULT_COLOR;
             $rgb = self::hexToRgb($color);
             $bgColor = 'rgba(' . $rgb[0] . ',' . $rgb[1] . ',' . $rgb[2] . ',0.1)';
+            $categoryLabel = htmlspecialchars($atts['category'], ENT_QUOTES, 'UTF-8');
 
-            $categoryHtml = '<span class="card-link-category" style="color:' . $color . ';background:' . $bgColor . '">' . $atts['category'] . '</span>';
+            $categoryHtml = '<span class="xiangming-card-link-category" style="color:' . $color . ';background:' . $bgColor . '">' . $categoryLabel . '</span>';
 
             // 添加 emoji
             if (isset($emojiMap[$atts['category']])) {
-                $emojiHtml = '<span class="card-link-emoji">' . $emojiMap[$atts['category']] . '</span>';
+                $emojiHtml = '<span class="xiangming-card-link-emoji">' . htmlspecialchars($emojiMap[$atts['category']], ENT_QUOTES, 'UTF-8') . '</span>';
             }
         }
 
         // 处理日期
         $dateHtml = '';
         if (!empty($atts['date'])) {
-            $dateHtml = '<span class="card-link-date">📅 ' . htmlspecialchars($atts['date']) . '</span>';
+            $dateHtml = '<span class="xiangming-card-link-date">📅 ' . htmlspecialchars($atts['date'], ENT_QUOTES, 'UTF-8') . '</span>';
         }
 
-        return '<div class="card-link-item">
+        $title = htmlspecialchars($atts['name'], ENT_QUOTES, 'UTF-8');
+        $link = self::sanitizeUrl($atts['link']);
+        $descHtml = self::renderCardDescription($desc);
+
+        return '<div class="xiangming-card-link-item">
             ' . $categoryHtml . '
             ' . $emojiHtml . '
-            <a href="' . $atts['link'] . '" target="_blank" class="card-link-wrap">
-                <div class="card-link-body">
-                    <h3 class="card-link-title">' . $atts['name'] . '</h3>
-                    <div class="card-link-desc">' . $desc . '</div>
+            <a href="' . $link . '" target="_blank" rel="noopener noreferrer nofollow" class="xiangming-card-link-wrap">
+                <div class="xiangming-card-link-body">
+                    <h3 class="xiangming-card-link-title">' . $title . '</h3>
+                    <div class="xiangming-card-link-desc">' . $descHtml . '</div>
                 </div>
             </a>
             ' . $dateHtml . '
         </div>';
     }
 
+    private static function shouldRenderMarkdown($text, $lastResult)
+    {
+        return empty($lastResult) || $lastResult === $text;
+    }
+
+    private static function renderMarkdown($text)
+    {
+        if (class_exists('Parsedown')) {
+            $parsedown = new Parsedown();
+            if (method_exists($parsedown, 'setSafeMode')) {
+                $parsedown->setSafeMode(true);
+            }
+            return $parsedown->text($text);
+        }
+
+        if (class_exists('HyperDown')) {
+            $parser = new HyperDown();
+            return $parser->makeHtml($text);
+        }
+
+        return $text;
+    }
+
+    private static function replacePlaceholders($content, array $cards)
+    {
+        foreach ($cards as $index => $cardHtml) {
+            $token = self::PLACEHOLDER_PREFIX . $index;
+            $content = preg_replace('/<p>\s*' . preg_quote($token, '/') . '\s*<\/p>/i', $token, $content);
+            $content = preg_replace('/<div>\s*' . preg_quote($token, '/') . '\s*<\/div>/i', $token, $content);
+            $content = str_replace($token, $cardHtml, $content);
+        }
+
+        return $content;
+    }
+
+    private static function renderCardDescription($desc)
+    {
+        if ($desc === '') {
+            return '';
+        }
+
+        $safeText = htmlspecialchars($desc, ENT_QUOTES, 'UTF-8');
+        $html = self::renderMarkdown($safeText);
+
+        if ($html === $safeText) {
+            return nl2br($safeText);
+        }
+
+        return self::trimParagraphWrapper($html);
+    }
+
+    private static function trimParagraphWrapper($html)
+    {
+        $trimmed = trim($html);
+        if (preg_match('/^<p>(.*)<\/p>$/is', $trimmed, $matches) === 1 && stripos($matches[1], '</p>') === false) {
+            return $matches[1];
+        }
+
+        return $trimmed;
+    }
+
+    private static function getCategoryConfig()
+    {
+        $options = Helper::options();
+        $plugin = $options->plugin('CardLink');
+        $colorMap = array();
+        $emojiMap = array();
+
+        if (!empty($plugin->categoryColors)) {
+            $lines = preg_split("/\r\n|\r|\n/", $plugin->categoryColors);
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line === '' || strpos($line, ':') === false) {
+                    continue;
+                }
+
+                $parts = explode(':', $line, 3);
+                $cat = trim($parts[0]);
+                if ($cat === '') {
+                    continue;
+                }
+
+                $colorMap[$cat] = self::normalizeColor(isset($parts[1]) ? trim($parts[1]) : self::DEFAULT_COLOR);
+                if (isset($parts[2]) && trim($parts[2]) !== '') {
+                    $emojiMap[$cat] = trim($parts[2]);
+                }
+            }
+        }
+
+        return array($colorMap, $emojiMap);
+    }
+
+    private static function normalizeColor($color)
+    {
+        if (preg_match('/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', $color) === 1) {
+            return $color;
+        }
+
+        return self::DEFAULT_COLOR;
+    }
+
+    private static function sanitizeUrl($url)
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '#';
+        }
+
+        $validated = filter_var($url, FILTER_VALIDATE_URL);
+        if ($validated === false) {
+            return '#';
+        }
+
+        $scheme = strtolower((string) parse_url($validated, PHP_URL_SCHEME));
+        if (!in_array($scheme, array('http', 'https'), true)) {
+            return '#';
+        }
+
+        return htmlspecialchars($validated, ENT_QUOTES, 'UTF-8');
+    }
+
     private static function hexToRgb($hex)
     {
-        $hex = ltrim($hex, '#');
+        $hex = ltrim(self::normalizeColor($hex), '#');
         if (strlen($hex) == 3) {
             $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
         }
