@@ -15,6 +15,7 @@
     position: relative;
     flex: 0 0 100%;
     max-width: 800px;
+    margin: 0 auto;
     background: #fff;
     border: 1px solid #eaeaea;
     border-radius: 8px;
