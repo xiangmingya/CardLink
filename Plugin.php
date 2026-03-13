@@ -19,7 +19,8 @@ class CardLink_Plugin implements Typecho_Plugin_Interface
      */
     public static function activate()
     {
-        Typecho_Plugin::factory('Widget_Abstract_Contents')->content = array('CardLink_Plugin', 'parse');
+        Typecho_Plugin::factory('Widget_Abstract_Contents')->contentEx = array('CardLink_Plugin', 'parse');
+        Typecho_Plugin::factory('Widget_Abstract_Contents')->excerptEx = array('CardLink_Plugin', 'parse');
         Typecho_Plugin::factory('Widget_Archive')->header = array('CardLink_Plugin', 'header');
         Typecho_Plugin::factory('admin/write-post.php')->bottom = array('CardLink_Plugin', 'footer');
         Typecho_Plugin::factory('admin/write-page.php')->bottom = array('CardLink_Plugin', 'footer');
@@ -139,41 +140,34 @@ EOF;
     public static function parse($text, $widget, $lastResult)
     {
         $content = empty($lastResult) ? $text : $lastResult;
+
         if (stripos($content, '[card') === false) {
             return $content;
         }
 
         $cardGroups = array();
-        $pattern = '/((?:\s*\[card\b[^\]]*\].*?\[\/card\]\s*)+)/is';
-        $contentWithPlaceholders = preg_replace_callback(
+        $pattern = '/\[card\b([^\]]*)\](.*?)\[\/card\]/is';
+
+        $result = preg_replace_callback(
             $pattern,
             function ($matches) use (&$cardGroups) {
-                preg_match_all('/\[card\b([^\]]*)\](.*?)\[\/card\]/is', $matches[1], $cardMatches, PREG_SET_ORDER);
-                if (empty($cardMatches)) {
-                    return $matches[0];
-                }
-
-                $cards = array();
-                foreach ($cardMatches as $cardMatch) {
-                    $cards[] = self::parseCallback($cardMatch);
-                }
-
                 $index = count($cardGroups);
-                $cardGroups[] = '<div class="xiangming-card-link-container">' . implode('', $cards) . '</div>';
-                return "\n\n" . self::PLACEHOLDER_PREFIX . $index . "\n\n";
+                $cardGroups[] = self::parseCallback($matches);
+                return self::PLACEHOLDER_PREFIX . $index;
             },
             $content
         );
 
-        if ($contentWithPlaceholders === null || empty($cardGroups)) {
+        if (empty($cardGroups)) {
             return $content;
         }
 
-        if (self::shouldRenderMarkdown($text, $lastResult)) {
-            $contentWithPlaceholders = self::renderMarkdown($contentWithPlaceholders);
+        foreach ($cardGroups as $index => $cardHtml) {
+            $token = self::PLACEHOLDER_PREFIX . $index;
+            $result = str_replace($token, $cardHtml, $result);
         }
 
-        return self::replacePlaceholders($contentWithPlaceholders, $cardGroups);
+        return $result;
     }
 
     /**
